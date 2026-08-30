@@ -1,2 +1,102 @@
-#Figure1
+#Figure1 FigureS1
 #
+#Tables1
+contig.info<-read.csv("../Tables/contig.stat.csv")
+genome.info<-read.csv("../Tables/genomeInfo.csv")
+MAG.info<-left_join(contig.info,genome.info,by="genome")
+write.csv(MAG.info,"../Tables/MAG.info.csv")
+#Tables2
+ANI<-read.csv("../Tables/MAG.gtdb.ANI.csv")
+MAG.GTDB.NCBI<-read.csv("../Tables/MAG.gtdb.ncbi.csv")
+MAG.GTDB.NCBI.ani<-left_join(MAG.GTDB.NCBI,ANI,by="MAG")
+tree<-read.csv("../Tables/tree.csv")
+tax<-read.csv("../Tables/taxonomy_ra.csv")
+tree_used<-left_join(tax,tree,by="MAGs")
+write.csv(tree_used,"../Tables/tree_used.csv",row.names = T)
+#
+library(dplyr)
+
+df <- tree_used %>%
+  mutate(Quality = case_when(
+    Completeness >= 97 & Contamination <= 0 ~ "Near complete",
+    Completeness >= 90 & Contamination <= 5 ~ "High quality",
+    Completeness >= 80 & Contamination <= 10 ~ "Medium quality",
+    TRUE ~ "Other"
+  ))
+#df$Quality<-factor(df$Quality,levels = c("Near complete","High quality","Medium quality"))
+mypal = cbbPalette<-c("#b2182b","#2166ac","#d1e5f0")
+
+ggplot(df, aes(x = Completeness, y = Contamination, color = Quality)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = mypal) +
+  theme_minimal(base_size = 16) +
+  labs(title = "",
+       x = "Completeness (%)",
+       y = "Contamination (%)") +
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1.5, size = 14, face = "bold", color = "black"),  # x轴标签
+        axis.text.y = element_text(size = 14, face = "bold", color = "black"),
+        axis.title = element_text(size = 16, face = "bold"),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, face = "italic"))
+ggsave("FigureS1a.pdf",width = 8,height = 6)
+#
+taxonomy <- read.csv ("Final_gtdbtk.taxonmy.csv", header = TRUE, sep = ",",row.names = 1)
+#1603 complete >80 <10
+taxonomy_data<-as.data.frame(taxonomy)
+taxonomy_data$MAG<-row.names(taxonomy_data)
+taxonomy_counts <- taxonomy_data %>%
+  summarise(across(Phylum:MAG, ~n_distinct(.))) %>%
+  pivot_longer(cols = everything(), names_to = "Taxonomic_Level", values_to = "Count")
+#
+taxonomy_counts$Taxonomic_Level <- factor(
+  taxonomy_counts$Taxonomic_Level,
+  levels = c("Phylum", "Class", "Order", "Family", "Genus", "Species", "MAG"),labels = c("Phylum", "Class", "Order", "Family", "Genus", "Species", "MAGs"))
+# 绘制柱状图
+library("RColorBrewer")
+colors<-c("#d73027","#f46d43","#fdae61","#fee090","#e0f3f8","#abd9e9","#74add1","#4575b4")
+p <- ggplot(taxonomy_counts, aes(x = Taxonomic_Level, y = Count, fill = Taxonomic_Level)) +
+  geom_bar(stat = "identity", color = "black", width = 0.7,alpha=0.8) +  # 黑色边框
+  geom_text(aes(label = Count), vjust = -0.5, size = 6, fontface = "bold") +  # 显示数值标签
+  scale_fill_manual(values = colors) +  # 使用自定义颜色
+  #theme_minimal(base_size = 16) +  # 高级主题
+  labs(title = "No. of taxa", x = "", y = "Count") +
+  theme(legend.key=element_blank())+
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1.5, size = 14, face = "bold", color = "black"),  # x轴标签
+        axis.text.y = element_text(size = 14, face = "bold", color = "black"),
+        axis.title = element_text(size = 16, face = "bold"),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, face = "italic"),
+        legend.position = "none")
+ggsave("FigureS1b.pdf",width = 6,height = 6)
+#Figure1f
+Order.mag<-table(taxonomy_data$Order)
+Order.mag<-data.frame(Order.mag)%>%top_n(n=20,wt = Freq)
+#
+
+Order.mag$Var1<-factor(Order.mag$Var1,levels = rev(c("o__Oscillospirales","o__Bacteroidales","o__Lachnospirales","o__Erysipelotrichales","o__Campylobacterales","o__Treponematales","o__Lactobacillales","o__Peptostreptococcales","o__Christensenellales","o__Veillonellales","o__Acidaminococcales","o__Sphaerochaetales","o__Selenomonadales","o__Enterobacterales","o__Burkholderiales","o__RF39","o__Coriobacteriales","o__UBA1381","o__Methanobacteriales","o__RFN20")),labels =rev(c("Oscillospirales","Bacteroidales","Lachnospirales","Erysipelotrichales","Campylobacterales","Treponematales","Lactobacillales","Peptostreptococcales","Christensenellales","Veillonellales","Acidaminococcales","Sphaerochaetales","Selenomonadales","Enterobacterales","Burkholderiales","RF39","Coriobacteriales","UBA1381","Methanobacteriales","RFN20")))
+#
+colorqual<-c(mycol,mycol)
+ggplot(Order.mag, aes(Var1, Freq))+
+  geom_bar(aes(fill = Var1), stat = "identity")+
+ # geom_text(aes(label = sig, y = Freq + 0.005), size = 8)+
+  scale_fill_manual(values = rev(colorqual))+ 
+  coord_flip()+
+  theme_bw()+
+  xlab("")+
+  ylab("No. of MAGs")+
+  theme(legend.position = "none", 
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid = element_blank(), 
+        axis.text.x = element_text(color ="black",angle = 0, vjust = 0.5, hjust = 0.5,size = 15),
+        axis.text.y = element_text(color ="black",angle = 0, vjust = 0.5, hjust =1,size = 15),
+        plot.title = element_text(hjust = 0.5, size = 15),
+        text = element_text())
+#ggsave("1.gtdbtk/Figure.no.mag.pdf",width = 9,height = 8)
+ggsave("../Figure_result/Figure1/Figure.1d.order.v2.pdf",width = 8,height = 7)
